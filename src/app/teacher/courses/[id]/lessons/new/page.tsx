@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Save, ArrowLeft, FileText, Video, Link, HelpCircle } from "lucide-react"
-import Link from "next/link"
+
 import { ContentType } from "@prisma/client"
 
 const contentTypeLabels = {

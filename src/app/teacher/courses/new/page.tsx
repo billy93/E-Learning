@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Save, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { GradeLevel } from "@prisma/client"
-import DashboardLayout from "../../dashboard/layout"
+import DashboardLayout from "@/app/dashboard/layout"
 
 const gradeLevelLabels = {
   [GradeLevel.SD1]: "SD Kelas 1",
@@ -96,7 +96,7 @@ export default function NewCoursePage() {
   }
 
   return (
-    <DashboardLayout title="Buat Kursus Baru" description="Buat kursus baru untuk membagikan pengetahuan Anda">
+    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/teacher/courses">
