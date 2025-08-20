@@ -1,0 +1,351 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  PARENT
+  ADMIN
+}
+
+enum GradeLevel {
+  SD1
+  SD2
+  SD3
+  SD4
+  SD5
+  SD6
+  SMP7
+  SMP8
+  SMP9
+  SMA10
+  SMA11
+  SMA12
+}
+
+enum ContentType {
+  VIDEO
+  PDF
+  ARTICLE
+  SLIDES
+  LINK
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  GRADED
+  LATE
+  MISSING
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  DROPPED
+  COMPLETED
+}
+
+enum Visibility {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  image        String?
+  password     String?
+  role         Role     @default(STUDENT)
+  gradeLevel   GradeLevel?
+  school       String?
+  grade        String?
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Auth (NextAuth)
+  accounts     Account[]
+  sessions     Session[]
+  
+  // Relations
+  teacherCourses Course[] @relation("CourseTeacher")
+  enrollments   Enrollment[]
+  submissions   Submission[]
+  messagesSent  Message[] @relation("SentMessages")
+  messagesRecv  Message[] @relation("RecvMessages")
+  notifications Notification[]
+  badges        UserBadge[]
+  schools       SchoolUser[]
+  parentChildren ParentChild[] @relation("ParentRel")
+  childChildren  ParentChild[] @relation("ChildRel")
+  quizAttempts  QuizAttempt[]
+}
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  type      String?  // SD, SMP, SMA, SMK
+  isActive  Boolean  @default(true)
+  visibility Visibility @default(PUBLISHED)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  courses   Course[]
+  users     SchoolUser[]
+}
+
+model SchoolUser {
+  id        String  @id @default(cuid())
+  schoolId  String
+  userId    String
+  roleAtSchool Role
+  school    School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([schoolId, userId])
+}
+
+model ParentChild {
+  id        String @id @default(cuid())
+  parentId  String
+  childId   String
+  createdAt DateTime @default(now())
+  parent    User   @relation("ParentRel", fields: [parentId], references: [id], onDelete: Cascade)
+  child     User   @relation("ChildRel", fields: [childId], references: [id], onDelete: Cascade)
+  @@unique([parentId, childId])
+}
+
+model Course {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  subject     String
+  gradeLevel  GradeLevel
+  schoolId    String?
+  teacherId   String
+  visibility  Visibility  @default(DRAFT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  teacher   User     @relation("CourseTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  school    School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  lessons   Lesson[]
+  quizzes   Quiz[]
+  assignments Assignment[]
+  enrollments Enrollment[]
+  announcements Announcement[]
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  courseId   String
+  studentId  String
+  status     EnrollmentStatus @default(PENDING)
+  progress   Int      @default(0)
+  createdAt  DateTime @default(now())
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student  User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([courseId, studentId])
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  contentType ContentType
+  contentUrl  String?
+  contentHtml String?
+  order       Int
+  visibility  Visibility @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model Quiz {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  isExam      Boolean  @default(false)
+  timeLimit   Int?
+  totalPoints Int      @default(0)
+  visibility  Visibility @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions Question[]
+  attempts  QuizAttempt[]
+}
+
+model Question {
+  id         String       @id @default(cuid())
+  quizId     String
+  type       QuestionType
+  prompt     String
+  points     Int          @default(1)
+  order      Int
+  options    Option[]
+  correctText String?
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers Answer[]
+}
+
+model Option {
+  id         String @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean @default(false)
+  order      Int
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id         String   @id @default(cuid())
+  quizId     String
+  studentId  String
+  startedAt  DateTime @default(now())
+  submittedAt DateTime?
+  score      Int      @default(0)
+  maxScore   Int      @default(0)
+  quiz    Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers Answer[]
+}
+
+model Answer {
+  id           String @id @default(cuid())
+  attemptId    String
+  questionId   String
+  selectedOptionId String?
+  textAnswer   String?
+  isCorrect    Boolean?
+  attempt  QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  description String?
+  dueAt       DateTime?
+  totalPoints Int      @default(100)
+  visibility  Visibility @default(DRAFT)
+  createdAt   DateTime @default(now())
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  studentId     String
+  fileUrl       String?
+  textAnswer    String?
+  submittedAt   DateTime?
+  status        SubmissionStatus @default(MISSING)
+  score         Int?
+  feedback      String?
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  fromId    String
+  toId      String
+  body      String
+  createdAt DateTime @default(now())
+  from User @relation("SentMessages", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("RecvMessages", fields: [toId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Badge {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  criteria  String?
+  iconUrl   String?
+  createdAt DateTime @default(now())
+  users UserBadge[]
+}
+
+model UserBadge {
+  id      String @id @default(cuid())
+  userId  String
+  badgeId String
+  awardedAt DateTime @default(now())
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  @@unique([userId, badgeId])
+}
+
+// NextAuth models (standard)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
